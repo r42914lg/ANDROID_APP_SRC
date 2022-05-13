@@ -16,10 +16,12 @@ import com.r42914lg.arkados.vitalk.model.ViTalkVM;
 
 import java.util.Map;
 
+import javax.inject.Inject;
+
 public class PermissionsHelper {
     public static final String TAG = "LG> PermissionsHelper";
 
-    private final AppCompatActivity activity;
+    private final AppCompatActivity appCompatActivity;
     private final ViTalkVM viTalkVM;
 
     private final String [] permissions = {
@@ -35,11 +37,12 @@ public class PermissionsHelper {
 
     private final ActivityResultLauncher<String[]> requestPermissionLauncher;
 
-    public PermissionsHelper(AppCompatActivity activity, ViTalkVM viTalkVM) {
-        this.activity = activity;
+    @Inject
+    public PermissionsHelper(AppCompatActivity appCompatActivity, ViTalkVM viTalkVM) {
+        this.appCompatActivity = appCompatActivity;
         this.viTalkVM = viTalkVM;
 
-        requestPermissionLauncher =  activity.registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(),
+        requestPermissionLauncher =  appCompatActivity.registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(),
                 new ActivityResultCallback<Map<String, Boolean>>() {
                     @Override
                     public void onActivityResult(Map<String, Boolean> result) {
@@ -60,17 +63,19 @@ public class PermissionsHelper {
         if (LOG) {
             Log.d(TAG, "  instance created");
         }
+
+        checkPermissions();
     }
 
-    public void checkPermissions() {
-        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-                && ContextCompat.checkSelfPermission(activity, Manifest.permission.INTERNET) == PackageManager.PERMISSION_GRANTED
-                && ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_NETWORK_STATE) == PackageManager.PERMISSION_GRANTED
-                && ContextCompat.checkSelfPermission(activity, Manifest.permission.GET_ACCOUNTS) == PackageManager.PERMISSION_GRANTED
-                && ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-                && ContextCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-                && ContextCompat.checkSelfPermission(activity, Manifest.permission.MODIFY_AUDIO_SETTINGS) == PackageManager.PERMISSION_GRANTED
-                && ContextCompat.checkSelfPermission(activity, Manifest.permission.CHANGE_NETWORK_STATE) == PackageManager.PERMISSION_GRANTED) {
+    private void checkPermissions() {
+        if (ContextCompat.checkSelfPermission(appCompatActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(appCompatActivity, Manifest.permission.INTERNET) == PackageManager.PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(appCompatActivity, Manifest.permission.ACCESS_NETWORK_STATE) == PackageManager.PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(appCompatActivity, Manifest.permission.GET_ACCOUNTS) == PackageManager.PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(appCompatActivity, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(appCompatActivity, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(appCompatActivity, Manifest.permission.MODIFY_AUDIO_SETTINGS) == PackageManager.PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(appCompatActivity, Manifest.permission.CHANGE_NETWORK_STATE) == PackageManager.PERMISSION_GRANTED) {
 
             if (LOG) {
                 Log.d(TAG, ".checkPermissions PASSED, calling onPermissionsCheckPassed() on VM");

@@ -18,19 +18,36 @@ import androidx.navigation.fragment.NavHostFragment;
 import com.google.android.material.tabs.TabLayout;
 import com.r42914lg.arkados.vitalk.R;
 import com.r42914lg.arkados.vitalk.databinding.FragmentSecondBinding;
+import com.r42914lg.arkados.vitalk.graph.DaggerFragmentGraph;
+import com.r42914lg.arkados.vitalk.graph.VmProviderModule;
 import com.r42914lg.arkados.vitalk.media.MediaOrchestrator;
+import com.r42914lg.arkados.vitalk.model.ViTalkVM;
+import com.r42914lg.arkados.vitalk.presenter.ViTalkPresenterSecondFragment;
+
+import javax.inject.Inject;
 
 public class SecondFragment extends Fragment implements IViTalkWorker {
     public static final String TAG = "LG> SecondFragment";
 
     private FragmentSecondBinding binding;
-    private ViTalkPresenter viTalkPresenter;
+
+    @Inject
+    ViTalkVM viTalkVM;
+
+    @Inject
+    ViTalkPresenterSecondFragment viTalkPresenterSecondFragment;
+
     private MediaOrchestrator mediaOrchestrator;
     private int currentTabPosition;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        viTalkPresenter = ((MainActivity) getActivity()).getViTalkPresenter();
+
+        DaggerFragmentGraph.builder()
+                .vmProviderModule(new VmProviderModule(getActivity()))
+                .build()
+                .inject(this);
+
         binding = FragmentSecondBinding.inflate(inflater, container, false);
 
         if (LOG) {
@@ -46,11 +63,11 @@ public class SecondFragment extends Fragment implements IViTalkWorker {
 
         binding.shareLinkButton.setEnabled(false);
 
-        viTalkPresenter.initWorkerFragment(this);
+        viTalkPresenterSecondFragment.initWorkerFragment(this, getContext());
         initTabsOneTwo();
 
         mediaOrchestrator = new MediaOrchestrator(getContext(), getViewLifecycleOwner(),
-                binding.youtubePlayerView, binding.youtubePlayerSeekbar, viTalkPresenter.getViTalkVM(), this);
+                binding.youtubePlayerView, binding.youtubePlayerSeekbar, viTalkVM, this);
 
         binding.muteSwitch.setOnCheckedChangeListener((compoundButton, b) -> mediaOrchestrator.onMuteChecked(b));
 
@@ -68,7 +85,8 @@ public class SecondFragment extends Fragment implements IViTalkWorker {
             return false;
         });
 
-        binding.shareLinkButton.setOnClickListener(view12 -> viTalkPresenter.processShareRequest(viTalkPresenter.getViTalkVM().getCurrentYoutubeId()));
+        viTalkVM.setYoutubeVideoIdToShareOrPreview(viTalkVM.getCurrentYoutubeId());
+        binding.shareLinkButton.setOnClickListener(view12 -> viTalkVM.getUiActionMutableLiveData().setValue(ViTalkVM.SHARE_ACTION_CODE));
         binding.finishRecordingButton.setOnClickListener(view13 -> mediaOrchestrator.stopRecordingSession(true));
 
         if (LOG) {
@@ -230,6 +248,11 @@ public class SecondFragment extends Fragment implements IViTalkWorker {
         if (mediaOrchestrator != null) {
             mediaOrchestrator.onPauseFragment();
         }
+    }
+
+    public void setVideoIdForWork(String youTubeId) {
+        viTalkVM.onVideIdSelected(youTubeId);
+        viTalkVM.getRecordSessionEndedFlagLiveData().setValue(false);
     }
 
     private void tabOne()  {

@@ -18,12 +18,14 @@ import com.google.firebase.storage.UploadTask;
 import org.jetbrains.annotations.NotNull;
 import java.io.File;
 
+import javax.inject.Inject;
 
 public class FirebaseHelper {
     public static final String TAG = "LG> FirebaseHelper";
 
     private IDataLoaderListener dataLoaderListener;
 
+    @Inject
     public FirebaseHelper(IDataLoaderListener dataLoaderListener) {
         this.dataLoaderListener = dataLoaderListener;
         FirebaseAuth mAuth = FirebaseAuth.getInstance();

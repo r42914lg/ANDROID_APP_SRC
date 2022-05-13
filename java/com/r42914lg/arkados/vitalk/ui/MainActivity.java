@@ -15,7 +15,6 @@ import android.os.StrictMode;
 import android.util.Log;
 import android.view.View;
 
-import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
@@ -28,11 +27,19 @@ import com.google.android.play.core.tasks.Task;
 import com.r42914lg.arkados.vitalk.R;
 import com.r42914lg.arkados.vitalk.ViTalkConstants;
 import com.r42914lg.arkados.vitalk.databinding.ActivityMainBinding;
+import com.r42914lg.arkados.vitalk.graph.ActivityModule;
+import com.r42914lg.arkados.vitalk.graph.DaggerMainGraph;
+import com.r42914lg.arkados.vitalk.graph.VmProviderModule;
 import com.r42914lg.arkados.vitalk.model.FavoritesEvent;
 import com.r42914lg.arkados.vitalk.model.ViTalkVM;
+import com.r42914lg.arkados.vitalk.presenter.ViTalkPresenterMain;
+import com.r42914lg.arkados.vitalk.utils.NetworkTracker;
+import com.r42914lg.arkados.vitalk.utils.PermissionsHelper;
 
 import android.view.Menu;
 import android.view.MenuItem;
+
+import javax.inject.Inject;
 
 public class MainActivity extends AppCompatActivity implements ICoreFrame {
     public static final String TAG = "LG> MainActivity";
@@ -45,16 +52,29 @@ public class MainActivity extends AppCompatActivity implements ICoreFrame {
     private boolean showFavoritesFlag;
     private boolean favoritesWasNull;
 
-    private ViTalkVM viTalkVM;
-    private ViTalkPresenter viTalkPresenter;
+    @Inject
+    ViTalkVM viTalkVM;
+
+    @Inject
+    ViTalkPresenterMain viTalkPresenterMain;
+
+    @Inject
+    PermissionsHelper permissionsHelper;
+
+    @Inject
+    NetworkTracker networkTracker;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        viTalkVM = new ViewModelProvider(this).get(ViTalkVM.class);
-        viTalkPresenter =  new ViTalkPresenter(this, viTalkVM);
-        viTalkPresenter.initMainActivity(this);
+        DaggerMainGraph.builder()
+                .activityModule(new ActivityModule(this))
+                .vmProviderModule(new VmProviderModule(this))
+                .build()
+                .inject(this);
+
+        viTalkPresenterMain.initMainActivity(this);
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -100,13 +120,13 @@ public class MainActivity extends AppCompatActivity implements ICoreFrame {
             if (type.equals("VIDEO_URI")) {
                 Uri videoUri = (Uri) newIntent.getParcelableExtra(Intent.EXTRA_STREAM);
                 if (videoUri != null) {
-                    viTalkPresenter.startVideoUpload(videoUri);
+                    viTalkPresenterMain.startVideoUpload(videoUri);
                 }
             }
             newIntent.setType("CONSUMED");
         }
 
-        viTalkPresenter.checkGoogleSignInUser();
+        viTalkPresenterMain.checkGoogleSignInUser();
 
         if (LOG) {
             Log.d(TAG, ".handleIntent");
@@ -164,7 +184,7 @@ public class MainActivity extends AppCompatActivity implements ICoreFrame {
         }
 
         if (item.getItemId() == R.id.sign_in) {
-            viTalkPresenter.doGoogleSignIn();
+            viTalkPresenterMain.doGoogleSignIn();
         }
 
         return super.onOptionsItemSelected(item);
@@ -175,10 +195,6 @@ public class MainActivity extends AppCompatActivity implements ICoreFrame {
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
         return NavigationUI.navigateUp(navController, appBarConfiguration)
                 || super.onSupportNavigateUp();
-    }
-
-    public ViTalkPresenter getViTalkPresenter() {
-        return viTalkPresenter;
     }
 
     @Override
@@ -219,7 +235,7 @@ public class MainActivity extends AppCompatActivity implements ICoreFrame {
         checkableMenuItem.setChecked(event.checkFavoritesChecked());
         checkableMenuItem.setIcon(checkableMenuItem.isChecked()? R.drawable.ic_baseline_favorite_24 : R.drawable.ic_baseline_favorite_border_24);
 
-        signinMenuItem.setVisible(viTalkPresenter.noGoogleSignIn());
+        signinMenuItem.setVisible(viTalkPresenterMain.noGoogleSignIn());
     }
 
     @Override
@@ -236,7 +252,7 @@ public class MainActivity extends AppCompatActivity implements ICoreFrame {
             return;
         }
         checkableMenuItem.setVisible(flag);
-        signinMenuItem.setVisible(flag && viTalkPresenter.noGoogleSignIn());
+        signinMenuItem.setVisible(flag && viTalkPresenterMain.noGoogleSignIn());
         if (LOG) {
             Log.d(TAG, ".showTabOneMenuItems FLAG == " + flag);
         }

@@ -23,12 +23,15 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 
+import javax.inject.Inject;
+
 public class LocalStorageHelper {
     public static final String TAG = "LG> LocalStorageHelper";
 
     private SharedPreferences preferences;
     private final IDataLoaderListener dataLoaderListener;
 
+    @Inject
     public LocalStorageHelper(IDataLoaderListener dataLoaderListener) {
         this.dataLoaderListener = dataLoaderListener;
 

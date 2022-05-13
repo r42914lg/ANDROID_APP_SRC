@@ -7,7 +7,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -17,17 +16,28 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.r42914lg.arkados.vitalk.R;
 import com.r42914lg.arkados.vitalk.databinding.FragmentFirstBinding;
+import com.r42914lg.arkados.vitalk.graph.DaggerFragmentGraph;
+import com.r42914lg.arkados.vitalk.graph.VmProviderModule;
+import com.r42914lg.arkados.vitalk.model.ViTalkVM;
 import com.r42914lg.arkados.vitalk.model.WorkItemVideo;
+import com.r42914lg.arkados.vitalk.presenter.ViTalkPresenterFirstFragment;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import javax.inject.Inject;
+
 public class FirstFragment extends Fragment implements IViTalkWorkItems {
     public static final String TAG = "LG> FirstFragment";
 
     private FragmentFirstBinding binding;
-    private ViTalkPresenter viTalkPresenter;
+
+    @Inject
+    ViTalkVM viTalkVM;
+
+    @Inject
+    ViTalkPresenterFirstFragment viTalkPresenterFirstFragment;
 
     private WorkItemAdapter adapter;
     private final ArrayList<WorkItemVideo> adapterVideoList = new ArrayList();
@@ -35,7 +45,12 @@ public class FirstFragment extends Fragment implements IViTalkWorkItems {
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        viTalkPresenter = ((MainActivity) getActivity()).getViTalkPresenter();
+
+        DaggerFragmentGraph.builder()
+                .vmProviderModule(new VmProviderModule(getActivity()))
+                .build()
+                .inject(this);
+
         binding = FragmentFirstBinding.inflate(inflater, container, false);
 
         binding.workItemRecycler.setLayoutManager(new LinearLayoutManager(container.getContext()));
@@ -54,7 +69,7 @@ public class FirstFragment extends Fragment implements IViTalkWorkItems {
 
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        viTalkPresenter.initWorkItemFragment(this);
+        viTalkPresenterFirstFragment.initWorkItemFragment(this);
 
         if (LOG) {
             Log.d(TAG, ".onViewCreated");
@@ -71,27 +86,27 @@ public class FirstFragment extends Fragment implements IViTalkWorkItems {
         }
     }
 
-    public ViTalkPresenter getViTalkPresenter() {
-        return viTalkPresenter;
+    public ViTalkPresenterFirstFragment getViTalkPresenter() {
+        return viTalkPresenterFirstFragment;
     }
 
     public void setVideoIdForWorkNavigateToSecond(String youTubeId) {
-        if (viTalkPresenter.getViTalkVM().isOnline()) {
-            viTalkPresenter.setVideoIdForWork(youTubeId);
+        if (viTalkVM.isOnline()) {
+            viTalkPresenterFirstFragment.setVideoIdForWork(youTubeId);
             NavHostFragment.findNavController(FirstFragment.this).navigate(R.id.action_FirstFragment_to_SecondFragment);
         } else {
-            viTalkPresenter.showToast("Check your internet connection and retry", Toast.LENGTH_LONG);
+            viTalkVM.notifyUIShowToast("Check your internet connection and retry");
         }
         if (LOG) {
-            Log.d(TAG, ".setVideoIdForWorkNavigateToSecond Video selected == " + youTubeId + " Online == " + viTalkPresenter.getViTalkVM().isOnline());
+            Log.d(TAG, ".setVideoIdForWorkNavigateToSecond Video selected == " + youTubeId + " Online == " + viTalkVM.isOnline());
         }
     }
 
     private void doFilterQuizzes() {
-        Set<String> favorites = viTalkPresenter.getViTalkVM().getFavoriteIDs();
+        Set<String> favorites = viTalkVM.getFavoriteIDs();
         adapterVideoListFiltered.clear();
-        if (viTalkPresenter.getViTalkVM().getFavoritesLiveData().getValue().checkFavoritesChecked()
-                && viTalkPresenter.getViTalkVM().getFavoritesLiveData().getValue().needEnableFavorites()) {
+        if (viTalkVM.getFavoritesLiveData().getValue().checkFavoritesChecked()
+                && viTalkVM.getFavoritesLiveData().getValue().needEnableFavorites()) {
             for (WorkItemVideo workItemVideo : adapterVideoList) {
                 if (favorites.contains(workItemVideo.youTubeId)) {
                     adapterVideoListFiltered.add(workItemVideo);

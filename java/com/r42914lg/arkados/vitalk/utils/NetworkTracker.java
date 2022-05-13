@@ -1,7 +1,6 @@
 package com.r42914lg.arkados.vitalk.utils;
 
 import static com.r42914lg.arkados.vitalk.ViTalkConstants.LOG;
-import android.app.Activity;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -10,15 +9,19 @@ import android.net.NetworkRequest;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.r42914lg.arkados.vitalk.model.ViTalkVM;
+
+import javax.inject.Inject;
 
 public class NetworkTracker {
     public static final String TAG = "LG> NetworkTracker";
 
     private boolean isOnline;
 
-    public NetworkTracker(Activity activity, ViTalkVM viTalkVM) {
+    @Inject
+    public NetworkTracker(AppCompatActivity appCompatActivity, ViTalkVM viTalkVM) {
         NetworkRequest networkRequest = new NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
@@ -50,7 +53,7 @@ public class NetworkTracker {
             }
         };
 
-        ConnectivityManager connectivityManager = (ConnectivityManager) activity.getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager connectivityManager = (ConnectivityManager) appCompatActivity.getSystemService(Context.CONNECTIVITY_SERVICE);
         connectivityManager.requestNetwork(networkRequest, networkCallback);
 
         if (LOG) {

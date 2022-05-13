@@ -7,36 +7,43 @@ import static com.r42914lg.arkados.vitalk.ViTalkConstants.LOG;
 import android.app.Application;
 import android.graphics.Bitmap;
 import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.core.os.HandlerCompat;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.MutableLiveData;
 
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.r42914lg.arkados.vitalk.R;
+import com.r42914lg.arkados.vitalk.graph.ConcurrentModule;
+import com.r42914lg.arkados.vitalk.graph.DaggerViewModelGraph;
+import com.r42914lg.arkados.vitalk.graph.StorageModule;
 
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+
+import javax.inject.Inject;
 
 public class ViTalkVM extends AndroidViewModel {
     public static final String TAG = "LG> ViTalkVM";
 
+    public static final int UPLOAD_LOCAL_VIDEO_CODE = 0;
+    public static final int SHARE_ACTION_CODE = 1;
+    public static final int PREVIEW_ACTION_CODE = 2;
+    public static final int ASK_RATINGS_ACTION_CODE = 3;
+    public static final int GOOGLE_SIGNIN_ACTION_CODE = 4;
+
     private String youtubeVideoId;
+    private String youtubeVideoIdToShareOrPreview;
     private String dataSource;
+    private LocalVideo localVideo;
     private boolean isOnline;
     private boolean firebaseAuthenticated;
 
     private final Map<String, Bitmap> imagesMap;
-
-    private final LocalStorageHelper localStorageHelper;
-    private final FirebaseHelper firebaseHelper;
     private final Set<String> favoriteIDs;
     private final List<WorkItemVideo> workItemVideoList;
 
@@ -52,19 +59,27 @@ public class ViTalkVM extends AndroidViewModel {
     private final MutableLiveData<Boolean> firebaseUploadFinishedLiveData;
     private final MutableLiveData<GoogleSignInAccount> googleSignInLiveData;
     private final MutableLiveData<String> liveToolBarTitle;
+    private final MutableLiveData<Boolean> showFabLiveData;
+    private final MutableLiveData<Boolean> showTabOneMenuItemsLiveData;
+    private final MutableLiveData<Integer> uiActionMutableLiveData;
 
-    private final ExecutorService executorService;
-    private final Handler mainThreadHandler;
+    @Inject
+    FirebaseHelper firebaseHelper;
+
+    @Inject
+    LocalStorageHelper localStorageHelper;
+
+    @Inject
+    ExecutorService executorService;
+
+    @Inject
+    Handler handler;
 
     private final Application application;
 
     public ViTalkVM(@NonNull Application application) {
         super(application);
-
         this.application = application;
-
-        executorService = Executors.newFixedThreadPool(10);
-        mainThreadHandler = HandlerCompat.createAsync(Looper.getMainLooper());
 
         IDataLoaderListener listener = new IDataLoaderListener() {
             @Override
@@ -130,6 +145,12 @@ public class ViTalkVM extends AndroidViewModel {
             }
         };
 
+        DaggerViewModelGraph.builder()
+                .storageModule(new StorageModule(listener))
+                .concurrentModule(new ConcurrentModule())
+                .build()
+                .inject(this);
+
         youtubeVideoIdLiveData = new MutableLiveData<>();
         progressBarFlagLiveData = new MutableLiveData<>();
         recordSessionEndedFlagLiveData = new MutableLiveData<>();
@@ -143,18 +164,16 @@ public class ViTalkVM extends AndroidViewModel {
         terminateDialogEventMutableLiveData = new MutableLiveData<>();
         googleSignInLiveData = new MutableLiveData<>();
         liveToolBarTitle = new MutableLiveData<>();
+        showFabLiveData = new MutableLiveData<>();
+        showTabOneMenuItemsLiveData = new MutableLiveData<>();
+        uiActionMutableLiveData = new MutableLiveData<>();
 
-        firebaseHelper = new FirebaseHelper(listener);
-
-        localStorageHelper = new LocalStorageHelper(listener);
         if (localStorageHelper.getPreferences() == null) {
             localStorageHelper.setSharedPreferences(application.getSharedPreferences("sharedPrefs", MODE_PRIVATE));
         }
 
         imagesMap =  new Hashtable<>();
-
         workItemVideoList = localStorageHelper.loadWorkItems();
-
         workItemsLoadedFlagLiveData.setValue(true);
         favoriteIDs = localStorageHelper.loadFavorites();
 
@@ -162,6 +181,55 @@ public class ViTalkVM extends AndroidViewModel {
             Log.d(TAG, " View Model instance created");
         }
     }
+
+    public MutableLiveData<Boolean> getProgressBarFlagLiveData() { return progressBarFlagLiveData; }
+    public MutableLiveData<Boolean> getRecordSessionEndedFlagLiveData() { return recordSessionEndedFlagLiveData; }
+    public MutableLiveData<FavoritesEvent> getFavoritesLiveData() { return favoritesLiveData; }
+    public MutableLiveData<Boolean> getWorkItemsLoadedFlagLiveData() { return workItemsLoadedFlagLiveData; }
+    public MutableLiveData<Integer> getInvalidateItemAtPositionLiveData() { return invalidateItemAtPositionLiveData; }
+    public MutableLiveData<Boolean> getFirebaseUploadFinishedLiveData() { return firebaseUploadFinishedLiveData; }
+    public MutableLiveData<String> getToastLiveData() { return toastLiveData; }
+    public MutableLiveData<RetryDialogEvent> getDialogEventMutableLiveData() { return retryDialogEventMutableLiveData; }
+    public MutableLiveData<TerminateDialogEvent> getTerminateDialogEventMutableLiveData() { return terminateDialogEventMutableLiveData; }
+    public MutableLiveData<GoogleSignInAccount> getGoogleSignInLiveData() { return googleSignInLiveData; }
+    public MutableLiveData<String> getLiveToolBarTitle() { return  liveToolBarTitle; }
+    public MutableLiveData<Boolean> getShowFabLiveData() { return showFabLiveData; }
+    public MutableLiveData<Boolean> getShowTabOneMenuItems() { return showTabOneMenuItemsLiveData; }
+    public MutableLiveData<Integer> getUiActionMutableLiveData() { return uiActionMutableLiveData; }
+
+    public List<WorkItemVideo> getWorkItemVideoList() {
+        return workItemVideoList;
+    }
+    public void notifyUIShowToast(String text) {
+        toastLiveData.setValue(text);
+    }
+    public String getGoogleAccId() {
+        return googleSignInLiveData.getValue().getId();
+    }
+    public Bitmap lookupForBitmap(String imageId) {
+        return imagesMap.get(imageId);
+    }
+    public String getDataSource() {
+        return dataSource;
+    }
+    public void setDataSource(String dataSource) {
+        this.dataSource = dataSource;
+    }
+    public boolean checkImageLoaded(String imageId) {
+        return imagesMap.containsKey(imageId);
+    }
+    public String getCurrentYoutubeId() { return youtubeVideoId; }
+    public boolean isOnline() {
+        return isOnline;
+    }
+    public void onYouTubePlayerReady() { youtubeVideoIdLiveData.setValue(youtubeVideoId); }
+    public void onVideoCued() {
+        progressBarFlagLiveData.setValue(false);
+    }
+    public void setLocalVideo(LocalVideo localVideo) { this.localVideo = localVideo; }
+    public LocalVideo getLocalVideo() { return localVideo; }
+    public void setYoutubeVideoIdToShareOrPreview(String youtubeVideoIdToShareOrPreview) { this.youtubeVideoIdToShareOrPreview = youtubeVideoIdToShareOrPreview; }
+    public String getYoutubeVideoIdToShareOrPreview() { return youtubeVideoIdToShareOrPreview; }
 
     @Override
     protected void onCleared() {
@@ -202,6 +270,10 @@ public class ViTalkVM extends AndroidViewModel {
         if (account != null) {
             liveToolBarTitle.setValue(application.getString(R.string.first_fragment_label).concat(" - ").concat(account.getDisplayName()));
         }
+    }
+
+    public boolean noGoogleSignIn() {
+        return googleSignInLiveData.getValue() ==  null;
     }
 
     public boolean checkIfFavorite(String quizId) {
@@ -249,18 +321,6 @@ public class ViTalkVM extends AndroidViewModel {
         }
     }
 
-    public boolean isOnline() {
-        return isOnline;
-    }
-
-    public void onYouTubePlayerReady() {
-        youtubeVideoIdLiveData.setValue(youtubeVideoId);
-    }
-
-    public void onVideoCued() {
-        progressBarFlagLiveData.setValue(false);
-    }
-
     public void onVideIdSelected(String youtubeVideoId) {
         this.youtubeVideoId = youtubeVideoId;
         setRecordExistFlag(youtubeVideoId, false);
@@ -280,10 +340,6 @@ public class ViTalkVM extends AndroidViewModel {
         progressBarFlagLiveData.setValue(true);
     }
 
-    public List<WorkItemVideo> getWorkItemVideoList() {
-        return workItemVideoList;
-    }
-
     public void addYouTubeIdToWorkItems(String youtubeVideoId) {
         if (lookUpForPositionInAdapter(youtubeVideoId) == -2) {
             if (LOG) {
@@ -291,8 +347,8 @@ public class ViTalkVM extends AndroidViewModel {
             }
 
             workItemVideoList.add(new WorkItemVideo(false, youtubeVideoId));
-            localStorageHelper.loadImageFromURL(youtubeVideoId, executorService, mainThreadHandler);
-            localStorageHelper.queryYouTubeTitleFromURL(youtubeVideoId, executorService, mainThreadHandler);
+            localStorageHelper.loadImageFromURL(youtubeVideoId, executorService, handler);
+            localStorageHelper.queryYouTubeTitleFromURL(youtubeVideoId, executorService, handler);
             localStorageHelper.storeWorkItems(workItemVideoList);
             workItemsLoadedFlagLiveData.setValue(true);
         } else {
@@ -308,30 +364,6 @@ public class ViTalkVM extends AndroidViewModel {
         int index = lookUpForIndexInList(youtubeVideoId);
         workItemVideoList.remove(index);
         localStorageHelper.storeWorkItems(workItemVideoList);
-    }
-
-    public String getGoogleAccId() {
-        return googleSignInLiveData.getValue().getId();
-    }
-
-    public Bitmap lookupForBitmap(String imageId) {
-        return imagesMap.get(imageId);
-    }
-
-    public String getDataSource() {
-        return dataSource;
-    }
-
-    public void setDataSource(String dataSource) {
-        this.dataSource = dataSource;
-    }
-
-    public boolean checkImageLoaded(String imageId) {
-        return imagesMap.containsKey(imageId);
-    }
-
-    public String getCurrentYoutubeId() {
-        return youtubeVideoId;
     }
 
     private int lookUpForPositionInAdapter(String youTubeId) {
@@ -352,16 +384,12 @@ public class ViTalkVM extends AndroidViewModel {
         return -1;
     }
 
-    private void notifyUIShowToast(String text) {
-        toastLiveData.setValue(text);
-    }
-
     private void loadYoutubeThumbnailsAndTitles() {
         if (isOnline && workItemVideoList != null && !workItemVideoList.isEmpty()) {
             for (WorkItemVideo workItemVideo : workItemVideoList) {
                 if (!imagesMap.containsKey(workItemVideo.youTubeId)) {
-                    localStorageHelper.loadImageFromURL(workItemVideo.youTubeId, executorService, mainThreadHandler);
-                    localStorageHelper.queryYouTubeTitleFromURL(workItemVideo.youTubeId, executorService, mainThreadHandler);
+                   localStorageHelper.loadImageFromURL(workItemVideo.youTubeId, executorService, handler);
+                   localStorageHelper.queryYouTubeTitleFromURL(workItemVideo.youTubeId, executorService, handler);
                 }
             }
         }
@@ -375,16 +403,4 @@ public class ViTalkVM extends AndroidViewModel {
             }
         }
     }
-
-    public MutableLiveData<Boolean> getProgressBarFlagLiveData() { return progressBarFlagLiveData; }
-    public MutableLiveData<Boolean> getRecordSessionEndedFlagLiveData() { return recordSessionEndedFlagLiveData; }
-    public MutableLiveData<FavoritesEvent> getFavoritesLiveData() { return favoritesLiveData; }
-    public MutableLiveData<Boolean> getWorkItemsLoadedFlagLiveData() { return workItemsLoadedFlagLiveData; }
-    public MutableLiveData<Integer> getInvalidateItemAtPositionLiveData() { return invalidateItemAtPositionLiveData; }
-    public MutableLiveData<Boolean>  getFirebaseUploadFinishedLiveData() { return firebaseUploadFinishedLiveData; }
-    public MutableLiveData<String> getToastLiveData() { return toastLiveData; }
-    public MutableLiveData<RetryDialogEvent> getDialogEventMutableLiveData() { return retryDialogEventMutableLiveData; }
-    public MutableLiveData<TerminateDialogEvent> getTerminateDialogEventMutableLiveData() { return terminateDialogEventMutableLiveData; }
-    public MutableLiveData<GoogleSignInAccount> getGoogleSignInLiveData() { return googleSignInLiveData; }
-    public MutableLiveData<String> getLiveToolBarTitle() { return  liveToolBarTitle; }
 }

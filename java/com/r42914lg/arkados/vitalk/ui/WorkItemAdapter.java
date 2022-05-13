@@ -15,16 +15,23 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.button.MaterialButton;
 
 import com.r42914lg.arkados.vitalk.R;
+import com.r42914lg.arkados.vitalk.graph.DaggerFragmentGraph;
+import com.r42914lg.arkados.vitalk.graph.VmProviderModule;
 import com.r42914lg.arkados.vitalk.model.ViTalkVM;
 import com.r42914lg.arkados.vitalk.model.WorkItemVideo;
 
 import java.util.List;
+
+import javax.inject.Inject;
 
 public class WorkItemAdapter extends RecyclerView.Adapter<WorkItemAdapter.WorkItemViewHolder> implements View.OnClickListener {
     public static final String TAG = "LG> WorkItemAdapter";
 
     private final List<WorkItemVideo> videoList;
     private final FirstFragment firstFragment;
+
+    @Inject
+    ViTalkVM viTalkVM;
 
     public static class WorkItemViewHolder extends RecyclerView.ViewHolder{
         protected ImageView youTubeThumbnail;
@@ -50,6 +57,11 @@ public class WorkItemAdapter extends RecyclerView.Adapter<WorkItemAdapter.WorkIt
     public WorkItemAdapter(List<WorkItemVideo> videoList, FirstFragment firstFragment) {
         this.videoList = videoList;
         this.firstFragment = firstFragment;
+
+        DaggerFragmentGraph.builder()
+                .vmProviderModule(new VmProviderModule(firstFragment.getActivity()))
+                .build()
+                .inject(this);
     }
 
     @Override
@@ -62,25 +74,26 @@ public class WorkItemAdapter extends RecyclerView.Adapter<WorkItemAdapter.WorkIt
     public void onBindViewHolder(WorkItemAdapter.WorkItemViewHolder holder, @SuppressLint("RecyclerView") int position) {
         WorkItemVideo current = videoList.get(position);
         current.positionInAdapter = position;
-        ViTalkVM viTalkVM = firstFragment.getViTalkPresenter().getViTalkVM();
 
         holder.previewButton.setEnabled(current.recordExists);
         holder.shareButton.setEnabled(current.recordExists);
 
         holder.previewButton.setOnClickListener(view -> {
-            if (firstFragment.getViTalkPresenter().noGoogleSignIn()) {
-                firstFragment.getViTalkPresenter().doGoogleSignIn();
+            if (viTalkVM.noGoogleSignIn()) {
+                viTalkVM.getUiActionMutableLiveData().setValue(ViTalkVM.GOOGLE_SIGNIN_ACTION_CODE);
                 return;
             }
-            firstFragment.getViTalkPresenter().processPreviewRequest(current.youTubeId);
+            viTalkVM.setYoutubeVideoIdToShareOrPreview(current.youTubeId);
+            viTalkVM.getUiActionMutableLiveData().setValue(ViTalkVM.PREVIEW_ACTION_CODE);
         });
 
         holder.shareButton.setOnClickListener(view -> {
-            if (firstFragment.getViTalkPresenter().noGoogleSignIn()) {
-                firstFragment.getViTalkPresenter().doGoogleSignIn();
+            if (viTalkVM.noGoogleSignIn()) {
+                viTalkVM.getUiActionMutableLiveData().setValue(ViTalkVM.GOOGLE_SIGNIN_ACTION_CODE);
                 return;
             }
-            firstFragment.getViTalkPresenter().processShareRequest(current.youTubeId);
+            viTalkVM.setYoutubeVideoIdToShareOrPreview(current.youTubeId);
+            viTalkVM.getUiActionMutableLiveData().setValue(ViTalkVM.SHARE_ACTION_CODE);
         });
 
         if (!viTalkVM.checkImageLoaded(current.youTubeId)) {
@@ -112,8 +125,8 @@ public class WorkItemAdapter extends RecyclerView.Adapter<WorkItemAdapter.WorkIt
 
     @Override
     public void onClick(View v) {
-        if (firstFragment.getViTalkPresenter().noGoogleSignIn()) {
-            firstFragment.getViTalkPresenter().doGoogleSignIn();
+        if (viTalkVM.noGoogleSignIn()) {
+            viTalkVM.getUiActionMutableLiveData().setValue(ViTalkVM.GOOGLE_SIGNIN_ACTION_CODE);
             return;
         }
 
@@ -158,7 +171,7 @@ public class WorkItemAdapter extends RecyclerView.Adapter<WorkItemAdapter.WorkIt
         String idToRemove = videoList.get(position).youTubeId;
         videoList.remove(position);
         notifyItemRemoved(position);
-        firstFragment.getViTalkPresenter().getViTalkVM().onWorkItemDeleted(idToRemove);
+        viTalkVM.onWorkItemDeleted(idToRemove);
     }
 
     public Context getContext() {

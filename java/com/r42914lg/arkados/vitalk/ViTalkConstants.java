@@ -5,5 +5,5 @@ public class ViTalkConstants {
     public static final String FILE_NAME = "/test.3gp";
     public static final int VIDEO_GALLERY_ADAPTER_COLUMNS = 3;
     public static final boolean STRICT_MODE = false;
-    public static final boolean LOG = false;
+    public static final boolean LOG = true;
 }
